@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="根据五项易获得的身体数据，估算体脂率、脂肪量和瘦组织量（不含骨矿物质），并显示经验误差范围。"
+    />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <title>体成分估算台</title>
+  </head>
+  <body>
+    <div class="ambient-grid" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="体成分估算台首页">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span>
+          <strong>体成分估算台</strong>
+          <small>BODY COMPOSITION WORKBENCH</small>
+        </span>
+      </a>
+      <div class="topbar-actions">
+        <button class="topbar-button" id="modelInfoButton" type="button">模型说明</button>
+        <div class="system-status" id="systemStatus" role="status">
+          <span class="status-dot"></span>
+          <span>正在连接模型</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="input-panel" aria-labelledby="inputHeading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">INPUT / 01</p>
+            <h1 id="inputHeading">输入测量</h1>
+          </div>
+          <span class="version-chip">软件 <span data-software-version>—</span></span>
+        </div>
+        <p class="panel-intro">研究原型。表单预填的是虚构示例；公开源码不附带训练模型。</p>
+
+        <form id="measurementForm" novalidate>
+          <fieldset class="sex-fieldset">
+            <legend>生理性别</legend>
+            <div class="segmented-control">
+              <label>
+                <input type="radio" name="sex" value="male" checked />
+                <span>男性</span>
+              </label>
+              <label>
+                <input type="radio" name="sex" value="female" />
+                <span>女性</span>
+              </label>
+            </div>
+            <p class="field-note">与 NHANES 模型中的生理性别编码一致</p>
+          </fieldset>
+
+          <div class="measurement-grid">
+            <div class="measure-field">
+              <div class="field-topline">
+                <label for="age">年龄</label>
+                <span class="field-value-wrap">
+                  <input id="age" name="age_years" type="number" min="18" max="59" step="1" value="30" required />
+                  <span>岁</span>
+                </span>
+              </div>
+              <input class="range-input" data-pair="age" type="range" min="18" max="59" step="1" value="30" aria-label="年龄滑块" />
+              <div class="range-labels"><span>18</span><span>59</span></div>
+            </div>
+
+            <div class="measure-field">
+              <div class="field-topline">
+                <label for="height">身高</label>
+                <span class="field-value-wrap">
+                  <input id="height" name="height_cm" type="number" min="135.3" max="193.3" step="0.1" value="175" required />
+                  <span>cm</span>
+                </span>
+              </div>
+              <input class="range-input" data-pair="height" type="range" min="135.3" max="193.3" step="0.1" value="175" aria-label="身高滑块" />
+              <div class="range-labels"><span>135.3</span><span>193.3</span></div>
+            </div>
+
+            <div class="measure-field">
+              <div class="field-topline">
+                <label for="weight">体重</label>
+                <span class="field-value-wrap">
+                  <input id="weight" name="weight_kg" type="number" min="32.8" max="187.5" step="0.1" value="75" required />
+                  <span>kg</span>
+                </span>
+              </div>
+              <input class="range-input" data-pair="weight" type="range" min="32.8" max="187.5" step="0.1" value="75" aria-label="体重滑块" />
+              <div class="range-labels"><span>32.8</span><span>187.5</span></div>
+            </div>
+
+            <div class="measure-field">
+              <div class="field-topline">
+                <span class="field-label-group">
+                  <label for="waist">腰围</label>
+                  <button class="inline-help" id="waistHelpButton" type="button">怎么量</button>
+                </span>
+                <span class="field-value-wrap">
+                  <input id="waist" name="waist_circumference_cm" type="number" min="55.5" max="176" step="0.1" value="85" required />
+                  <span>cm</span>
+                </span>
+              </div>
+              <input class="range-input" data-pair="waist" type="range" min="55.5" max="176" step="0.1" value="85" aria-label="腰围滑块" />
+              <div class="range-labels"><span>55.5</span><span>176</span></div>
+            </div>
+          </div>
+
+          <div class="derived-strip" aria-live="polite">
+            <div>
+              <span>派生 BMI</span>
+              <strong id="liveBmi">24.5</strong>
+            </div>
+            <span class="bmi-state" id="liveBmiLabel">BMI 18.5–24.9</span>
+          </div>
+
+          <button class="primary-button" id="submitButton" type="submit">
+            <span class="button-label">生成身体成分估算</span>
+            <span class="button-loader" aria-hidden="true"></span>
+          </button>
+          <p class="scope-note">当前模型适用于 18–59 岁成年人；结果不替代 DXA 或医学判断。</p>
+        </form>
+      </section>
+
+      <section class="results-panel" aria-labelledby="resultHeading">
+        <div class="section-heading results-heading">
+          <div>
+            <p class="eyebrow">ESTIMATE / 02</p>
+            <h2 id="resultHeading">估算结果</h2>
+          </div>
+          <button class="text-button" id="copyButton" type="button" disabled>复制摘要</button>
+        </div>
+
+        <div class="context-bar">
+          <div>
+            <span class="context-label">BMI 分组</span>
+            <strong id="bmiGroup">—</strong>
+          </div>
+          <div>
+            <span class="context-label">不确定范围</span>
+            <strong>覆盖率以模型验证为准</strong>
+          </div>
+          <div>
+            <span class="context-label">最后计算</span>
+            <strong id="calculatedAt">—</strong>
+          </div>
+        </div>
+
+        <div class="result-state-bar">
+          <p class="result-status" id="resultStatus" role="status">正在连接模型</p>
+          <button class="text-button" id="retryButton" type="button" hidden>重试估算</button>
+        </div>
+        <p class="input-snapshot" id="inputSnapshot" hidden></p>
+
+        <div class="result-grid" id="resultGrid" aria-live="polite" aria-busy="false">
+          <div class="result-placeholder">
+            <div class="placeholder-pulse"></div>
+            <p>模型连接后将自动计算示例数据</p>
+          </div>
+        </div>
+
+        <div class="warning-stack" id="warningStack" aria-live="polite"></div>
+
+        <details class="reading-guide">
+          <summary>如何阅读这些结果</summary>
+          <div class="guide-content">
+            <p><strong>大数字</strong>是模型的中心估计，不是精确测量值。</p>
+            <p><strong>误差范围</strong>由模型包中的校准残差计算；标称覆盖率不保证对新数据仍然成立。</p>
+            <p><strong>比较变化</strong>时应保持测量方法和时间条件一致，小于误差范围的变化不宜过度解读。</p>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <section class="method-strip" aria-label="模型信息">
+      <div>
+        <span class="method-index">A</span>
+        <p><strong>五项输入</strong><span>性别、年龄、身高、体重、腰围</span></p>
+      </div>
+      <div>
+        <span class="method-index">B</span>
+        <p><strong>三项输出</strong><span>体脂率、脂肪量、瘦组织量（不含骨矿物质）</span></p>
+      </div>
+      <div>
+        <span class="method-index">C</span>
+        <p><strong>研究验证方案</strong><span>跨调查周期留出测试</span></p>
+      </div>
+    </section>
+
+    <footer>
+      <p>身体软测量 · 软件 <span data-software-version>—</span> · 模型 <span data-model-version>—</span> · 基于 NHANES 群体数据的个人软件实验</p>
+      <a href="/api/docs" target="_blank" rel="noreferrer">API 文档</a>
+    </footer>
+
+    <dialog class="info-dialog" id="waistHelpDialog" aria-labelledby="waistHelpTitle">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">MEASUREMENT GUIDE</p>
+          <h2 id="waistHelpTitle">按 NHANES 方式测量腰围</h2>
+        </div>
+        <button class="dialog-close" type="button" data-close-dialog aria-label="关闭测量说明">×</button>
+      </div>
+      <ol class="measurement-steps">
+        <li><span>01</span><p>直立并露出测量位置，腹部自然放松。</p></li>
+        <li><span>02</span><p>在身体侧面找到髂骨最上缘与腋中线相交的位置。</p></li>
+        <li><span>03</span><p>软尺绕腰一周并保持水平，贴合皮肤但不要压迫。</p></li>
+        <li><span>04</span><p>正常呼吸，在一次自然呼气结束时读数，记录到 0.1 cm。</p></li>
+      </ol>
+      <p class="dialog-note">尽量由同一人、使用同一软尺和同一位置重复测量。模型训练数据由受训技术人员按标准流程采集，家庭测量会带来额外误差。</p>
+    </dialog>
+
+    <dialog class="info-dialog model-dialog" id="modelInfoDialog" aria-labelledby="modelInfoTitle">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">MODEL CARD</p>
+          <h2 id="modelInfoTitle">模型说明</h2>
+        </div>
+        <button class="dialog-close" type="button" data-close-dialog aria-label="关闭模型说明">×</button>
+      </div>
+      <div class="model-card-summary">
+        <div><span>软件版本</span><strong data-software-version>—</strong></div>
+        <div><span>模型版本</span><strong data-model-version>—</strong></div>
+        <div><span>历史研究训练方案</span><strong>NHANES 2011–2016</strong></div>
+        <div><span>历史研究留出方案</span><strong>NHANES 2017–2018</strong></div>
+        <div><span>适用年龄</span><strong>18–59 岁</strong></div>
+        <div><span>数据保存</span><strong>默认不保存</strong></div>
+      </div>
+      <div class="integrity-line" id="integrityLine">正在读取模型信息…</div>
+      <div class="model-table-wrap">
+        <table class="model-table">
+          <thead><tr><th>输出</th><th>模型</th><th>独立周期 MAE</th><th>R²</th><th>区间覆盖</th></tr></thead>
+          <tbody id="modelTableBody"></tbody>
+        </table>
+      </div>
+      <div class="model-limitations">
+        <h3>使用边界</h3>
+        <ul>
+          <li>输出是群体数据估算，不是 DXA 实测或医学诊断。</li>
+          <li>NHANES 主要代表美国人群，尚未完成中国健身人群验证。</li>
+          <li>瘦组织量不含骨矿物质；脂肪量和瘦组织量由独立模型预测，不强制满足代数相加关系。</li>
+          <li>预测不确定范围是跨周期经验误差，不是个人严格保证。</li>
+        </ul>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
+
